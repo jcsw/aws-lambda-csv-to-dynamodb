@@ -1,0 +1,1 @@
+# Create lambda with terraform  to import csv to dynamodb
