@@ -1,6 +1,6 @@
 resource "aws_dynamodb_table" "movies" {
   name = "movies"
-  read_capacity  = 5
+  read_capacity  = 10
   write_capacity = 10
   hash_key       = "imdb"
   range_key      = "year"
@@ -23,8 +23,8 @@ resource "aws_dynamodb_table" "movies" {
 }
 
 resource "aws_appautoscaling_target" "movies_read" {
-  max_capacity       = 10
-  min_capacity       = 5
+  max_capacity       = 20
+  min_capacity       = 10
   resource_id        = "table/${aws_dynamodb_table.movies.name}"
   scalable_dimension = "dynamodb:table:ReadCapacityUnits"
   service_namespace  = "dynamodb"
@@ -47,7 +47,7 @@ resource "aws_appautoscaling_policy" "movies_read_policy" {
 }
 
 resource "aws_appautoscaling_target" "movies_write" {
-  max_capacity       = 100
+  max_capacity       = 220
   min_capacity       = 10
   resource_id        = "table/${aws_dynamodb_table.movies.name}"
   scalable_dimension = "dynamodb:table:WriteCapacityUnits"
@@ -66,6 +66,6 @@ resource "aws_appautoscaling_policy" "movies_write_policy" {
       predefined_metric_type = "DynamoDBWriteCapacityUtilization"
     }
 
-    target_value = 50
+    target_value = 30
   }
 }

@@ -52,12 +52,21 @@ resource "aws_iam_role_policy_attachment" "extract_movies_from_s3_attach" {
 }
 
 resource "aws_lambda_function" "extract_movies_from_s3" {
-  filename      = "lambda/extract_movies_from_s3/function.zip"
+  filename      = "lambda/js/extract_movies_from_s3/function.zip"
   function_name = "extract_movies_from_s3"
   role          = "${aws_iam_role.extract_movies_from_s3_role.arn}"
   handler       = "extract_movies_from_s3.handler"
   runtime       = "nodejs8.10"
-  timeout       = "60"
+  timeout       = "300"
+}
+
+resource "aws_lambda_function" "extract_movies_from_s3_golang" {
+  filename      = "lambda/go/extract_movies_from_s3/cmd/deployment.zip"
+  function_name = "extract_movies_from_s3_golang"
+  role          = "${aws_iam_role.extract_movies_from_s3_role.arn}"
+  handler       = "main"
+  runtime       = "go1.x"
+  timeout       = "300"
 }
 
 resource "aws_iam_role" "import_movies_in_dynamodb_role" {
@@ -110,11 +119,11 @@ resource "aws_iam_role_policy_attachment" "import_movies_in_dynamodb_attach" {
 }
 
 resource "aws_lambda_function" "import_movies_in_dynamodb" {
-  filename      = "lambda/import_movies_in_dynamodb/function.zip"
+  filename      = "lambda/js/import_movies_in_dynamodb/function.zip"
   function_name = "import_movies_in_dynamodb"
   role          = "${aws_iam_role.import_movies_in_dynamodb_role.arn}"
   handler       = "import_movies_in_dynamodb.handler"
   runtime       = "nodejs8.10"
   timeout       = "60"
-  reserved_concurrent_executions = 10
+  reserved_concurrent_executions = 2
 }

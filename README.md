@@ -16,3 +16,10 @@ N:year
 S:title
 S:code
 ```
+
+Build go lambda
+```
+cd lambda/go/extract_movies_from_s3/cmd
+GOOS=linux go build -o main
+zip deployment.zip main
+```
