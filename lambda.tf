@@ -116,4 +116,5 @@ resource "aws_lambda_function" "import_movies_in_dynamodb" {
   handler       = "import_movies_in_dynamodb.handler"
   runtime       = "nodejs8.10"
   timeout       = "60"
+  reserved_concurrent_executions = 10
 }

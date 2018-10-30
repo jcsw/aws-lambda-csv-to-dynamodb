@@ -7,7 +7,7 @@ aws.config.update({region: 'us-east-1'});
 
 var s3 = new aws.S3({apiVersion: '2006-03-01'});
 
-var chunkSize = 50;
+var chunkSize = 10;
 var headerLine = 1;
 
 exports.handler = function(event, context, callback) {

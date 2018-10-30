@@ -1,6 +1,7 @@
 resource "aws_s3_bucket" "import_movies_csv" {
   bucket = "import.movies.csv"
   acl    = "private"
+  force_destroy = true
 
   tags {
     Name        = "Movies CSV bucket"

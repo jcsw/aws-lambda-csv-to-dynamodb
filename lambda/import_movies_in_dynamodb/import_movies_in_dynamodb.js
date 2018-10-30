@@ -26,18 +26,19 @@ exports.handler = function(event, context, callback) {
     var processedRows = 0, errorsRows = 0;
 
     for (var i = 0, len = event.chunkRows.length; i < len; i++) {
-        processedRows++;
 
         var item = event.chunkRows[i]
-        dynamodb.putItem({TableName: 'movies', Item: item}, (err, res) => {
+        dynamodb.putItem({TableName: 'movies', Item: item}, (err, data) => {
             if(err) {
                 errorsRows++;
-                console.log('item:', item);
-                console.log('error:', err);
-            } 
+                console.log('error:', err,  err.stack);
+            } else {
+                processedRows++;
+                console.log('data:', data);
+            }
+
+            console.log('processedRows:', processedRows);
+            console.log('errorsRows:', errorsRows);
         });
     }
-
-    console.log('processedRows:', processedRows);
-    console.log('errorsRows:', errorsRows);
 }
