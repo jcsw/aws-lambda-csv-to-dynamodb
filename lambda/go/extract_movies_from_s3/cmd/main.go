@@ -3,18 +3,27 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	invoke "github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 type dbItem map[string]interface{}
+
+type createMoviesEvent struct {
+	SourceName string   `json:"sourceName"`
+	Items      []dbItem `json:"items"`
+}
 
 func main() {
 	lambda.Start(handler)
@@ -40,15 +49,25 @@ func handler(ctx context.Context, s3Event events.S3Event) {
 	}
 
 	defer result.Body.Close()
-	reader := csv.NewReader(result.Body)
+	processFile(result.Body, s3Entity.Object.Key)
+}
+
+func processFile(fileReader io.ReadCloser, fileName string) {
+
+	reader := csv.NewReader(fileReader)
 
 	chunkSizeMax := 100
 	chunkSize := 10
 
+	sleepTime := 1000
+	sleepTimeMin := 500
+
+	totalItems := 0
+
 	items := make([]dbItem, 0, 0)
 
 	header, _ := reader.Read()
-	fmt.Println("header:", header)
+	fmt.Println("processFile > header:", header)
 
 	for {
 
@@ -56,20 +75,28 @@ func handler(ctx context.Context, s3Event events.S3Event) {
 		if err == io.EOF {
 			break
 		}
-		fmt.Println("record:", record)
+
+		totalItems++
 
 		item := makeItemByRecord(record)
 		items = append(items, item)
 
 		if len(items) == chunkSize {
-			sendItems(items)
+			sendItems(items, fileName)
 			items = make([]dbItem, 0, 0)
 
 			if chunkSize < chunkSizeMax {
 				chunkSize += 10
 			}
+
+			time.Sleep(time.Duration(sleepTime) * time.Millisecond)
+			if sleepTime > sleepTimeMin {
+				sleepTime -= 100
+			}
 		}
 	}
+
+	fmt.Println("totalItems:", totalItems)
 }
 
 func makeItemByRecord(record []string) map[string]interface{} {
@@ -82,7 +109,29 @@ func makeItemByRecord(record []string) map[string]interface{} {
 	return item
 }
 
-func sendItems(items []dbItem) {
-	fmt.Println("len:", len(items))
-	fmt.Println("items:", items)
+func sendItems(items []dbItem, fileName string) {
+	fmt.Println("sendItems > len:", len(items))
+	fmt.Println("sendItems > items:", items)
+
+	event := createMoviesEvent{
+		SourceName: fileName,
+		Items:      items,
+	}
+
+	payload, err := json.Marshal(event)
+
+	svc := invoke.New(session.New())
+	input := &invoke.InvokeInput{
+		FunctionName:   aws.String("import_movies_in_dynamodb_go"),
+		InvocationType: aws.String("Event"),
+		LogType:        aws.String("Tail"),
+		Payload:        payload,
+	}
+
+	result, err := svc.Invoke(input)
+	if err != nil {
+		fmt.Println("sendItems > err:", err)
+	}
+
+	fmt.Printf("sendItems > statusCode:%d\n", result.StatusCode)
 }

@@ -60,9 +60,9 @@ resource "aws_lambda_function" "extract_movies_from_s3" {
   timeout       = "300"
 }
 
-resource "aws_lambda_function" "extract_movies_from_s3_golang" {
+resource "aws_lambda_function" "extract_movies_from_s3_go" {
   filename      = "lambda/go/extract_movies_from_s3/cmd/deployment.zip"
-  function_name = "extract_movies_from_s3_golang"
+  function_name = "extract_movies_from_s3_go"
   role          = "${aws_iam_role.extract_movies_from_s3_role.arn}"
   handler       = "main"
   runtime       = "go1.x"
@@ -124,6 +124,16 @@ resource "aws_lambda_function" "import_movies_in_dynamodb" {
   role          = "${aws_iam_role.import_movies_in_dynamodb_role.arn}"
   handler       = "import_movies_in_dynamodb.handler"
   runtime       = "nodejs8.10"
+  timeout       = "60"
+  reserved_concurrent_executions = 2
+}
+
+resource "aws_lambda_function" "import_movies_in_dynamodb_go" {
+  filename      = "lambda/go/import_movies_in_dynamodb/cmd/deployment.zip"
+  function_name = "import_movies_in_dynamodb_go"
+  role          = "${aws_iam_role.import_movies_in_dynamodb_role.arn}"
+  handler       = "main"
+  runtime       = "go1.x"
   timeout       = "60"
   reserved_concurrent_executions = 2
 }
