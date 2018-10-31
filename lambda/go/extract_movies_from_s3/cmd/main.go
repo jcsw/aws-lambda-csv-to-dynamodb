@@ -96,6 +96,10 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 		}
 	}
 
+	if len(items) > 0 {
+		sendItems(items, fileName)
+	}
+
 	fmt.Println("totalItems:", totalItems)
 }
 
