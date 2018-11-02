@@ -47,7 +47,7 @@ resource "aws_appautoscaling_policy" "movies_read_policy" {
 }
 
 resource "aws_appautoscaling_target" "movies_write" {
-  max_capacity       = 220
+  max_capacity       = 150
   min_capacity       = 10
   resource_id        = "table/${aws_dynamodb_table.movies.name}"
   scalable_dimension = "dynamodb:table:WriteCapacityUnits"

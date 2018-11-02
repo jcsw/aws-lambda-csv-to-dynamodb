@@ -154,5 +154,5 @@ func sendItems(items []dbItem, fileName string, batchID string, batchDate string
 		fmt.Println("sendItems > err:", err)
 	}
 
-	fmt.Printf("sendItems > statusCode:%d\n", result.StatusCode)
+	fmt.Printf("sendItems > statusCode:%+v\n", result.StatusCode)
 }
