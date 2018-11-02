@@ -5,3 +5,6 @@ terraform.tfstate.backup
 
 # Zip
 **/*.zip
+
+# Go
+**/cmd/main
