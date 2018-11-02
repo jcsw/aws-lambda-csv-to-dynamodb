@@ -3,7 +3,7 @@ resource "aws_dynamodb_table" "movies" {
   read_capacity  = 10
   write_capacity = 10
   hash_key       = "imdb"
-  range_key      = "year"
+  range_key      = "batchID"
 
   attribute {
     name = "imdb"
@@ -11,7 +11,7 @@ resource "aws_dynamodb_table" "movies" {
   }
 
   attribute {
-    name = "year"
+    name = "batchID"
     type = "N"
   }
 
@@ -42,7 +42,7 @@ resource "aws_appautoscaling_policy" "movies_read_policy" {
       predefined_metric_type = "DynamoDBReadCapacityUtilization"
     }
 
-    target_value = 70
+    target_value = 60
   }
 }
 

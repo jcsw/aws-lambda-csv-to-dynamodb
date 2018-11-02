@@ -14,6 +14,8 @@ type dbItem map[string]string
 
 type createMoviesEvent struct {
 	SourceName string   `json:"sourceName"`
+	BatchID    string   `json:"batchID"`
+	BatchDate  string   `json:"batchDate"`
 	Items      []dbItem `json:"items"`
 }
 
@@ -22,12 +24,12 @@ func main() {
 }
 
 func handler(ctx context.Context, event createMoviesEvent) error {
-	fmt.Printf("handler > sourceName:%s itemsSize:%d\n", event.SourceName, len(event.Items))
+	fmt.Printf("handler > sourceName:%s batchID:%s BatchDate:%s itemsSize:%d\n", event.SourceName, event.BatchID, event.BatchDate, len(event.Items))
 
 	var db = dynamodb.New(session.New())
 
 	for _, item := range event.Items {
-		putItemInput := makeDynamodbItem(item)
+		putItemInput := makeDynamodbItem(item, event.BatchID, event.BatchDate)
 		_, err := db.PutItem(&putItemInput)
 
 		if err != nil {
@@ -38,12 +40,18 @@ func handler(ctx context.Context, event createMoviesEvent) error {
 	return nil
 }
 
-func makeDynamodbItem(item dbItem) dynamodb.PutItemInput {
+func makeDynamodbItem(item dbItem, batchID string, batchDate string) dynamodb.PutItemInput {
 	input := dynamodb.PutItemInput{
 		TableName: aws.String("movies"),
 		Item: map[string]*dynamodb.AttributeValue{
 			"imdb": {
 				S: aws.String(item["imdb"]),
+			},
+			"batchID": {
+				N: aws.String(batchID),
+			},
+			"batchDate": {
+				S: aws.String(batchDate),
 			},
 			"year": {
 				N: aws.String(item["year"]),

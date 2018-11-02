@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -22,6 +23,8 @@ type dbItem map[string]interface{}
 
 type createMoviesEvent struct {
 	SourceName string   `json:"sourceName"`
+	BatchID    string   `json:"batchID"`
+	BatchDate  string   `json:"batchDate"`
 	Items      []dbItem `json:"items"`
 }
 
@@ -67,6 +70,14 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 
 	items := make([]dbItem, 0, 0)
 
+	fileNameWithoutExtension := strings.Split(fileName, ".")[0]
+	fileNameValues := strings.Split(fileNameWithoutExtension, "_")
+
+	batchID := fileNameValues[0]
+	batchDate := fileNameValues[1]
+
+	fmt.Println("init process > batchID:", batchID, "batchDate:", batchDate)
+
 	header, _ := reader.Read()
 	fmt.Println("processFile > header:", header)
 
@@ -83,7 +94,7 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 		items = append(items, item)
 
 		if len(items) == chunkSize {
-			sendItems(items, fileName)
+			sendItems(items, fileName, batchID, batchDate)
 			totalchunks++
 
 			items = make([]dbItem, 0, 0)
@@ -93,18 +104,18 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 			}
 
 			time.Sleep(time.Duration(sleepTime) * time.Millisecond)
-			if sleepTime > sleepTimeMin {
+			if (chunkSize == chunkSizeMax) && (sleepTime > sleepTimeMin) {
 				sleepTime -= 100
 			}
 		}
 	}
 
 	if len(items) > 0 {
-		sendItems(items, fileName)
+		sendItems(items, fileName, batchID, batchDate)
 		totalchunks++
 	}
 
-	fmt.Println("totalItems:", totalItems, "totalchunks:", totalchunks)
+	fmt.Println("finished process > batchID:", batchID, "batchDate:", batchDate, "totalItems:", totalItems, "totalchunks:", totalchunks)
 }
 
 func makeItemByRecord(record []string) map[string]interface{} {
@@ -117,12 +128,14 @@ func makeItemByRecord(record []string) map[string]interface{} {
 	return item
 }
 
-func sendItems(items []dbItem, fileName string) {
+func sendItems(items []dbItem, fileName string, batchID string, batchDate string) {
 	fmt.Println("sendItems > len:", len(items))
 	fmt.Println("sendItems > items:", items)
 
 	event := createMoviesEvent{
 		SourceName: fileName,
+		BatchID:    batchID,
+		BatchDate:  batchDate,
 		Items:      items,
 	}
 
