@@ -1,24 +1,29 @@
 # Create lambda with terraform  to import csv to dynamodb
 
-Create infra
+Build aws lambda
+
+```text
+cd aws-lambda/extract_movies_from_s3/cmd && GOOS=linux go build -o main && zip deployment.zip main && cd -
+cd aws-lambda/import_movies_in_dynamodb/cmd && GOOS=linux go build -o main && zip deployment.zip main && cd -
 ```
+
+Build terraform
+
+```text
+cd terraform
 terraform init
 terraform plan
 terraform apply
 ```
 
-Upload movies_1.csv in bucket ```import.movies.csv```
+table format:
 
-table: ```movies```
-```
+```js
+name: movies
+fields: [
 S:imdb
 N:year
 S:title
 S:code
-```
-
-Build go lambda
-```
-cd lambda/go/extract_movies_from_s3/cmd && GOOS=linux go build -o main && zip deployment.zip main && cd -
-cd lambda/go/import_movies_in_dynamodb/cmd && GOOS=linux go build -o main && zip deployment.zip main && cd -
+]
 ```

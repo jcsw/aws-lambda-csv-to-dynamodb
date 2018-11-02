@@ -14,7 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	invoke "github.com/aws/aws-sdk-go/service/lambda"
+	lambdaService "github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
@@ -63,6 +63,7 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 	sleepTimeMin := 500
 
 	totalItems := 0
+	totalchunks := 0
 
 	items := make([]dbItem, 0, 0)
 
@@ -83,6 +84,8 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 
 		if len(items) == chunkSize {
 			sendItems(items, fileName)
+			totalchunks++
+
 			items = make([]dbItem, 0, 0)
 
 			if chunkSize < chunkSizeMax {
@@ -98,9 +101,10 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 
 	if len(items) > 0 {
 		sendItems(items, fileName)
+		totalchunks++
 	}
 
-	fmt.Println("totalItems:", totalItems)
+	fmt.Println("totalItems:", totalItems, "totalchunks:", totalchunks)
 }
 
 func makeItemByRecord(record []string) map[string]interface{} {
@@ -124,9 +128,9 @@ func sendItems(items []dbItem, fileName string) {
 
 	payload, err := json.Marshal(event)
 
-	svc := invoke.New(session.New())
-	input := &invoke.InvokeInput{
-		FunctionName:   aws.String("import_movies_in_dynamodb_go"),
+	svc := lambdaService.New(session.New())
+	input := &lambdaService.InvokeInput{
+		FunctionName:   aws.String("import_movies_in_dynamodb"),
 		InvocationType: aws.String("Event"),
 		LogType:        aws.String("Tail"),
 		Payload:        payload,
