@@ -10,29 +10,37 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+	awsEvents "github.com/aws/aws-lambda-go/events"
+	awsLambda "github.com/aws/aws-lambda-go/lambda"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	lambdaService "github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 type dbItem map[string]interface{}
 
-type createMoviesEvent struct {
+type importMoviesEvent struct {
 	SourceName string   `json:"sourceName"`
 	BatchID    string   `json:"batchID"`
 	BatchDate  string   `json:"batchDate"`
 	Items      []dbItem `json:"items"`
 }
 
-func main() {
-	lambda.Start(handler)
+type verifyMoviesEvent struct {
+	SourceName string `json:"sourceName"`
+	BatchID    string `json:"batchID"`
+	BatchDate  string `json:"batchDate"`
+	TotalItems int    `json:"totalItems"`
 }
 
-func handler(ctx context.Context, s3Event events.S3Event) {
+func main() {
+	awsLambda.Start(handler)
+}
+
+func handler(ctx context.Context, s3Event awsEvents.S3Event) {
 
 	record := s3Event.Records[0]
 	s3Entity := s3Event.Records[0].S3
@@ -42,7 +50,7 @@ func handler(ctx context.Context, s3Event events.S3Event) {
 	sess := session.Must(session.NewSession())
 	svc := s3.New(sess)
 
-	result, err := svc.GetObject(&s3.GetObjectInput{
+	s3Object, err := svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(s3Entity.Bucket.Name),
 		Key:    aws.String(s3Entity.Object.Key),
 	})
@@ -50,9 +58,49 @@ func handler(ctx context.Context, s3Event events.S3Event) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer s3Object.Body.Close()
 
-	defer result.Body.Close()
-	processFile(result.Body, s3Entity.Object.Key)
+	updateTableMoviesWriteThroughput()
+
+	processFile(s3Object.Body, s3Entity.Object.Key)
+}
+
+func updateTableMoviesWriteThroughput() {
+	sess := session.Must(session.NewSession())
+	db := dynamodb.New(sess)
+
+	moviesTableName := "movies"
+	newWriteThroughput := int64(120)
+	timeInSecondsWaitTableRefresh := 3
+
+	inputDescribeTable := dynamodb.DescribeTableInput{TableName: &moviesTableName}
+	moviesTableDescribe, err := db.DescribeTable(&inputDescribeTable)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	moviesTable := moviesTableDescribe.Table
+	currentProvisionedThroughput := moviesTable.ProvisionedThroughput
+
+	newProvisionedThroughput := dynamodb.ProvisionedThroughput{
+		ReadCapacityUnits:  currentProvisionedThroughput.ReadCapacityUnits,
+		WriteCapacityUnits: &newWriteThroughput,
+	}
+
+	updateInput := dynamodb.UpdateTableInput{
+		TableName:             &moviesTableName,
+		ProvisionedThroughput: &newProvisionedThroughput,
+	}
+
+	output, err := db.UpdateTable(&updateInput)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("updateTableMoviesWriteThroughput > output:", output)
+
+	time.Sleep(time.Duration(timeInSecondsWaitTableRefresh) * time.Second)
 }
 
 func processFile(fileReader io.ReadCloser, fileName string) {
@@ -61,9 +109,6 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 
 	chunkSizeMax := 100
 	chunkSize := 10
-
-	sleepTime := 1000
-	sleepTimeMin := 500
 
 	totalItems := 0
 	totalchunks := 0
@@ -76,7 +121,7 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 	batchID := fileNameValues[0]
 	batchDate := fileNameValues[1]
 
-	fmt.Println("init process > batchID:", batchID, "batchDate:", batchDate)
+	fmt.Println("processFile > init batchID:", batchID, "batchDate:", batchDate)
 
 	header, _ := reader.Read()
 	fmt.Println("processFile > header:", header)
@@ -89,33 +134,28 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 		}
 
 		totalItems++
-
 		item := makeItemByRecord(record)
 		items = append(items, item)
 
 		if len(items) == chunkSize {
-			sendItems(items, fileName, batchID, batchDate)
+			sendToImport(fileName, batchID, batchDate, items)
 			totalchunks++
-
 			items = make([]dbItem, 0, 0)
 
 			if chunkSize < chunkSizeMax {
 				chunkSize += 10
 			}
-
-			time.Sleep(time.Duration(sleepTime) * time.Millisecond)
-			if (chunkSize == chunkSizeMax) && (sleepTime > sleepTimeMin) {
-				sleepTime -= 100
-			}
 		}
 	}
 
 	if len(items) > 0 {
-		sendItems(items, fileName, batchID, batchDate)
+		sendToImport(fileName, batchID, batchDate, items)
 		totalchunks++
 	}
 
-	fmt.Println("finished process > batchID:", batchID, "batchDate:", batchDate, "totalItems:", totalItems, "totalchunks:", totalchunks)
+	sendToVerify(fileName, batchID, batchDate, totalItems)
+
+	fmt.Println("processFile > finished batchID:", batchID, "batchDate:", batchDate, "totalItems:", totalItems, "totalchunks:", totalchunks)
 }
 
 func makeItemByRecord(record []string) map[string]interface{} {
@@ -128,22 +168,40 @@ func makeItemByRecord(record []string) map[string]interface{} {
 	return item
 }
 
-func sendItems(items []dbItem, fileName string, batchID string, batchDate string) {
-	fmt.Println("sendItems > len:", len(items))
-	fmt.Println("sendItems > items:", items)
-
-	event := createMoviesEvent{
+func sendToImport(fileName string, batchID string, batchDate string, items []dbItem) {
+	event := importMoviesEvent{
 		SourceName: fileName,
 		BatchID:    batchID,
 		BatchDate:  batchDate,
 		Items:      items,
 	}
 
+	invokeEventFunction("import_movies_in_dynamodb", event)
+}
+
+func sendToVerify(fileName string, batchID string, batchDate string, totalItems int) {
+	event := verifyMoviesEvent{
+		SourceName: fileName,
+		BatchID:    batchID,
+		BatchDate:  batchDate,
+		TotalItems: totalItems,
+	}
+
+	invokeEventFunction("verify_movies_in_dynamodb", event)
+}
+
+func invokeEventFunction(functionName string, event interface{}) {
+	fmt.Println("invokeEventFunction > functionName:", functionName, "event:", event)
+
 	payload, err := json.Marshal(event)
 
-	svc := lambdaService.New(session.New())
-	input := &lambdaService.InvokeInput{
-		FunctionName:   aws.String("import_movies_in_dynamodb"),
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	svc := lambda.New(session.New())
+	input := &lambda.InvokeInput{
+		FunctionName:   aws.String(functionName),
 		InvocationType: aws.String("Event"),
 		LogType:        aws.String("Tail"),
 		Payload:        payload,
@@ -151,8 +209,8 @@ func sendItems(items []dbItem, fileName string, batchID string, batchDate string
 
 	result, err := svc.Invoke(input)
 	if err != nil {
-		fmt.Println("sendItems > err:", err)
+		log.Fatal(err)
 	}
 
-	fmt.Printf("sendItems > statusCode:%+v\n", result.StatusCode)
+	fmt.Println("invokeEventFunction > result:", result)
 }

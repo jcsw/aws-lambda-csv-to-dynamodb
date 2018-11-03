@@ -12,18 +12,20 @@ import (
 
 type dbItem map[string]string
 
-type createMoviesEvent struct {
+type importMoviesEvent struct {
 	SourceName string   `json:"sourceName"`
 	BatchID    string   `json:"batchID"`
 	BatchDate  string   `json:"batchDate"`
 	Items      []dbItem `json:"items"`
 }
 
+var moviesTableName = "movies"
+
 func main() {
 	lambda.Start(handler)
 }
 
-func handler(ctx context.Context, event createMoviesEvent) error {
+func handler(ctx context.Context, event importMoviesEvent) error {
 	fmt.Printf("handler > sourceName:%s batchID:%s BatchDate:%s itemsSize:%d\n", event.SourceName, event.BatchID, event.BatchDate, len(event.Items))
 
 	var db = dynamodb.New(session.New())
@@ -42,7 +44,7 @@ func handler(ctx context.Context, event createMoviesEvent) error {
 
 func makeDynamodbItem(item dbItem, batchID string, batchDate string) dynamodb.PutItemInput {
 	input := dynamodb.PutItemInput{
-		TableName: aws.String("movies"),
+		TableName: aws.String(moviesTableName),
 		Item: map[string]*dynamodb.AttributeValue{
 			"imdb": {
 				S: aws.String(item["imdb"]),
