@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -23,8 +22,8 @@ type verifyMoviesEvent struct {
 }
 
 var moviesTableName = "movies"
-var timeInSecondsWaitToFinishImportProcess = 2
-var attemptQuantity = 5
+var timeInSecondsWaitToFinishImportProcess = 30
+var attemptQuantity = 20
 
 func main() {
 	lambda.Start(handler)
@@ -44,15 +43,21 @@ func handler(ctx context.Context, event verifyMoviesEvent) error {
 		currentCount = processCountByBatchID(event.BatchID)
 
 		if currentCount == event.TotalItems {
-			fmt.Println("process finished with success > batchID:", event.BatchID, "batchDate:", event.BatchDate, "totalItems:", event.TotalItems)
+			fmt.Printf("process finished with success > batchID=%s batchDate=%s totalItems=%d totalImported:%d\n",
+				event.BatchID, event.BatchDate, event.TotalItems, currentCount)
 			success = true
+			break
 		} else {
-			fmt.Println("ongoing process > batchID:", event.BatchID, "batchDate:", event.BatchDate, "totalItems:", event.TotalItems, "currentCount:", currentCount)
+			fmt.Printf("ongoing process > batchID=%s batchDate=%s totalItems=%d totalImported:%d\n",
+				event.BatchID, event.BatchDate, event.TotalItems, currentCount)
 		}
 	}
 
+	updateTableMoviesWriteThroughput()
+
 	if success == false {
-		return errors.New(fmt.Sprint("process finished with error > batchID:", event.BatchID, "batchDate:", event.BatchDate, "totalItems:", event.TotalItems, "currentCount:", currentCount))
+		return fmt.Errorf("process finished with error > batchID=%s batchDate=%s totalItems=%d totalImported:%d",
+			event.BatchID, event.BatchDate, event.TotalItems, currentCount)
 	}
 
 	return nil
@@ -86,4 +91,39 @@ func processCountByBatchID(batchID string) int64 {
 	}
 
 	return *countItemsInMoviesTableOutput.Count
+}
+
+func updateTableMoviesWriteThroughput() {
+	sess := session.Must(session.NewSession())
+	db := dynamodb.New(sess)
+
+	moviesTableName := "movies"
+	newWriteThroughput := int64(5)
+
+	inputDescribeTable := dynamodb.DescribeTableInput{TableName: &moviesTableName}
+	moviesTableDescribe, err := db.DescribeTable(&inputDescribeTable)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	moviesTable := moviesTableDescribe.Table
+	currentProvisionedThroughput := moviesTable.ProvisionedThroughput
+
+	newProvisionedThroughput := dynamodb.ProvisionedThroughput{
+		ReadCapacityUnits:  currentProvisionedThroughput.ReadCapacityUnits,
+		WriteCapacityUnits: &newWriteThroughput,
+	}
+
+	updateInput := dynamodb.UpdateTableInput{
+		TableName:             &moviesTableName,
+		ProvisionedThroughput: &newProvisionedThroughput,
+	}
+
+	output, err := db.UpdateTable(&updateInput)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("updateTableMoviesWriteThroughput > output:", output)
 }

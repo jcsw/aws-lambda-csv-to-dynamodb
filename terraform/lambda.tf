@@ -24,6 +24,6 @@ resource "aws_lambda_function" "verify_movies_in_dynamodb" {
   role          = "${aws_iam_role.verify_movies_in_dynamodb_role.arn}"
   handler       = "main"
   runtime       = "go1.x"
-  timeout       = "300"
+  timeout       = "660"
   reserved_concurrent_executions = 1
 }
