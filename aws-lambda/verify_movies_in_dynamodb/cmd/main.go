@@ -76,7 +76,7 @@ func processCountByBatchID(batchID string) int64 {
 					N: aws.String(batchID),
 				},
 			},
-		}
+		},
 	}
 
 	countItemsInMoviesTableInput := dynamodb.QueryInput{
