@@ -52,7 +52,7 @@ func handler(ctx context.Context, event verifyMoviesEvent) error {
 	}
 
 	if success == false {
-		return errors.New(fmt.Sprintln("process finished with error > batchID:", event.BatchID, "batchDate:", event.BatchDate, "totalItems:", event.TotalItems, "currentCount:", currentCount))
+		return errors.New(fmt.Sprint("process finished with error > batchID:", event.BatchID, "batchDate:", event.BatchDate, "totalItems:", event.TotalItems, "currentCount:", currentCount))
 	}
 
 	return nil
