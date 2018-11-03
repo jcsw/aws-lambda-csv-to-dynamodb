@@ -22,15 +22,15 @@ type verifyMoviesEvent struct {
 }
 
 var moviesTableName = "movies"
-var timeInSecondsWaitToFinishImportProcess = 30
-var attemptQuantity = 20
+var timeInSecondsWaitToFinishImportProcess = 1
+var attemptQuantity = 1
 
 func main() {
 	lambda.Start(handler)
 }
 
-func handler(ctx context.Context, event verifyMoviesEvent) error {
-	fmt.Printf("handler > sourceName:%s batchID:%s BatchDate:%s totalItems:%d\n", event.SourceName, event.BatchID, event.BatchDate, event.TotalItems)
+func handler(ctx context.Context, event verifyMoviesEvent) {
+	fmt.Printf("handler > sourceName:%s batchID:%s batchDate:%s totalItems:%d\n", event.SourceName, event.BatchID, event.BatchDate, event.TotalItems)
 
 	success := false
 
@@ -56,11 +56,9 @@ func handler(ctx context.Context, event verifyMoviesEvent) error {
 	updateTableMoviesWriteThroughput()
 
 	if success == false {
-		return fmt.Errorf("process finished with error > batchID=%s batchDate=%s totalItems=%d totalImported:%d",
+		fmt.Printf("process finished with error > batchID=%s batchDate=%s totalItems=%d totalImported:%d",
 			event.BatchID, event.BatchDate, event.TotalItems, currentCount)
 	}
-
-	return nil
 }
 
 func processCountByBatchID(batchID string) int64 {
@@ -68,6 +66,8 @@ func processCountByBatchID(batchID string) int64 {
 	db := dynamodb.New(session.New())
 
 	var selctCount = dynamodb.SelectCount
+	var consistentRead = true
+
 	var countQuery = map[string]*dynamodb.Condition{
 		"batchID": {
 			ComparisonOperator: aws.String("EQ"),
@@ -76,19 +76,22 @@ func processCountByBatchID(batchID string) int64 {
 					N: aws.String(batchID),
 				},
 			},
-		},
+		}
 	}
 
 	countItemsInMoviesTableInput := dynamodb.QueryInput{
-		TableName:     &moviesTableName,
-		Select:        &selctCount,
-		KeyConditions: countQuery,
+		TableName:      aws.String(moviesTableName),
+		Select:         &selctCount,
+		ConsistentRead: &consistentRead,
+		KeyConditions:  countQuery,
 	}
 
 	countItemsInMoviesTableOutput, err := db.Query(&countItemsInMoviesTableInput)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Printf("processCountByBatchID > countItemsInMoviesTableOutput=%s\n", countItemsInMoviesTableOutput)
 
 	return *countItemsInMoviesTableOutput.Count
 }

@@ -45,27 +45,3 @@ resource "aws_appautoscaling_policy" "movies_read_policy" {
     target_value = 75
   }
 }
-
-resource "aws_appautoscaling_target" "movies_write" {
-  max_capacity       = 150
-  min_capacity       = 5
-  resource_id        = "table/${aws_dynamodb_table.movies.name}"
-  scalable_dimension = "dynamodb:table:WriteCapacityUnits"
-  service_namespace  = "dynamodb"
-}
-
-resource "aws_appautoscaling_policy" "movies_write_policy" {
-  name               = "DynamoDBWriteCapacityUtilization:${aws_appautoscaling_target.movies_write.resource_id}"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = "${aws_appautoscaling_target.movies_write.resource_id}"
-  scalable_dimension = "${aws_appautoscaling_target.movies_write.scalable_dimension}"
-  service_namespace  = "${aws_appautoscaling_target.movies_write.service_namespace}"
-
-  target_tracking_scaling_policy_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "DynamoDBWriteCapacityUtilization"
-    }
-
-    target_value = 75
-  }
-}

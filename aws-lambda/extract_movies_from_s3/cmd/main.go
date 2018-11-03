@@ -70,8 +70,8 @@ func updateTableMoviesWriteThroughput() {
 	db := dynamodb.New(sess)
 
 	moviesTableName := "movies"
-	newWriteThroughput := int64(120)
-	timeInSecondsWaitTableRefresh := 3
+	newWriteThroughput := int64(300)
+	timeInSecondsWaitTableRefresh := 5
 
 	inputDescribeTable := dynamodb.DescribeTableInput{TableName: &moviesTableName}
 	moviesTableDescribe, err := db.DescribeTable(&inputDescribeTable)
@@ -107,8 +107,7 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 
 	reader := csv.NewReader(fileReader)
 
-	chunkSizeMax := 100
-	chunkSize := 10
+	chunkSize := 300
 
 	totalItems := 0
 	totalchunks := 0
@@ -138,13 +137,10 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 		items = append(items, item)
 
 		if len(items) == chunkSize {
-			sendToImport(fileName, batchID, batchDate, items)
 			totalchunks++
+			sendToImport(fileName, batchID, batchDate, items)
 			items = make([]dbItem, 0, 0)
-
-			if chunkSize < chunkSizeMax {
-				chunkSize += 10
-			}
+			time.Sleep(time.Duration(100) * time.Millisecond)
 		}
 	}
 
@@ -212,5 +208,5 @@ func invokeEventFunction(functionName string, event interface{}) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("invokeEventFunction > result:", result)
+	fmt.Println("invokeEventFunction > resultStatusCode:", *result.StatusCode)
 }

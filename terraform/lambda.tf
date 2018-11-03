@@ -4,7 +4,7 @@ resource "aws_lambda_function" "extract_movies_from_s3" {
   role          = "${aws_iam_role.extract_movies_from_s3_role.arn}"
   handler       = "main"
   runtime       = "go1.x"
-  timeout       = "300"
+  timeout       = "900"
   reserved_concurrent_executions = 1
 }
 
@@ -15,7 +15,7 @@ resource "aws_lambda_function" "import_movies_in_dynamodb" {
   handler       = "main"
   runtime       = "go1.x"
   timeout       = "120"
-  reserved_concurrent_executions = 4
+  reserved_concurrent_executions = 10
 }
 
 resource "aws_lambda_function" "verify_movies_in_dynamodb" {
@@ -24,6 +24,6 @@ resource "aws_lambda_function" "verify_movies_in_dynamodb" {
   role          = "${aws_iam_role.verify_movies_in_dynamodb_role.arn}"
   handler       = "main"
   runtime       = "go1.x"
-  timeout       = "660"
+  timeout       = "900"
   reserved_concurrent_executions = 1
 }
