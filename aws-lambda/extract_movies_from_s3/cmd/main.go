@@ -20,7 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-type dbItem map[string]interface{}
+type dbItem map[string]string
 
 type importMoviesEvent struct {
 	SourceName string   `json:"sourceName"`
@@ -92,13 +92,10 @@ func updateTableMoviesWriteThroughput() {
 		ProvisionedThroughput: &newProvisionedThroughput,
 	}
 
-	output, err := db.UpdateTable(&updateInput)
-
+	_, err = db.UpdateTable(&updateInput)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("updateTableMoviesWriteThroughput > output:", output)
 
 	time.Sleep(time.Duration(timeInSecondsWaitTableRefresh) * time.Second)
 }
@@ -107,7 +104,7 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 
 	reader := csv.NewReader(fileReader)
 
-	chunkSize := 300
+	chunkSize := 1000
 
 	totalItems := 0
 	totalchunks := 0
@@ -140,7 +137,6 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 			totalchunks++
 			sendToImport(fileName, batchID, batchDate, items)
 			items = make([]dbItem, 0, 0)
-			time.Sleep(time.Duration(100) * time.Millisecond)
 		}
 	}
 
@@ -154,8 +150,8 @@ func processFile(fileReader io.ReadCloser, fileName string) {
 	fmt.Println("processFile > finished batchID:", batchID, "batchDate:", batchDate, "totalItems:", totalItems, "totalchunks:", totalchunks)
 }
 
-func makeItemByRecord(record []string) map[string]interface{} {
-	item := make(map[string]interface{})
+func makeItemByRecord(record []string) dbItem {
+	item := make(map[string]string)
 	item["imdb"] = record[0]
 	item["year"] = record[1]
 	item["title"] = record[2]

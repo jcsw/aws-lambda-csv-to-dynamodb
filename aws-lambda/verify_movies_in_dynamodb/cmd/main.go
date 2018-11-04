@@ -22,8 +22,8 @@ type verifyMoviesEvent struct {
 }
 
 var moviesTableName = "movies"
-var timeInSecondsWaitToFinishImportProcess = 1
-var attemptQuantity = 1
+var timeInSecondsWaitToFinishImportProcess = 60
+var attemptQuantity = 7
 
 func main() {
 	lambda.Start(handler)
@@ -68,32 +68,38 @@ func processCountByBatchID(batchID string) int64 {
 	var selctCount = dynamodb.SelectCount
 	var consistentRead = true
 
-	var countQuery = map[string]*dynamodb.Condition{
-		"batchID": {
-			ComparisonOperator: aws.String("EQ"),
-			AttributeValueList: []*dynamodb.AttributeValue{
-				{
-					N: aws.String(batchID),
-				},
+	countInput := dynamodb.QueryInput{
+		TableName: aws.String(moviesTableName),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":batchID": {
+				N: aws.String(batchID),
 			},
 		},
+		KeyConditionExpression: aws.String("batchID = :batchID"),
+		Select:                 &selctCount,
+		ConsistentRead:         &consistentRead,
 	}
 
-	countItemsInMoviesTableInput := dynamodb.QueryInput{
-		TableName:      aws.String(moviesTableName),
-		Select:         &selctCount,
-		ConsistentRead: &consistentRead,
-		KeyConditions:  countQuery,
-	}
+	count := int64(0)
 
-	countItemsInMoviesTableOutput, err := db.Query(&countItemsInMoviesTableInput)
+	countOutput, err := db.Query(&countInput)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("processCountByBatchID > countItemsInMoviesTableOutput=%s\n", countItemsInMoviesTableOutput)
+	count += *countOutput.Count
+	for len(countOutput.LastEvaluatedKey) > 0 {
 
-	return *countItemsInMoviesTableOutput.Count
+		countInput.SetExclusiveStartKey(countOutput.LastEvaluatedKey)
+		countOutput, err = db.Query(&countInput)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		count += *countOutput.Count
+	}
+
+	return count
 }
 
 func updateTableMoviesWriteThroughput() {
@@ -122,11 +128,8 @@ func updateTableMoviesWriteThroughput() {
 		ProvisionedThroughput: &newProvisionedThroughput,
 	}
 
-	output, err := db.UpdateTable(&updateInput)
-
+	_, err = db.UpdateTable(&updateInput)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("updateTableMoviesWriteThroughput > output:", output)
 }
