@@ -15,7 +15,7 @@ resource "aws_lambda_function" "import_movies_in_dynamodb" {
   handler       = "main"
   runtime       = "go1.x"
   timeout       = "120"
-  reserved_concurrent_executions = 6
+  reserved_concurrent_executions = 10
 }
 
 resource "aws_lambda_function" "verify_movies_in_dynamodb" {

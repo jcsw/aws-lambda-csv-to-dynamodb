@@ -70,7 +70,7 @@ func updateTableMoviesWriteThroughput() {
 	db := dynamodb.New(sess)
 
 	moviesTableName := "movies"
-	newWriteThroughput := int64(300)
+	newWriteThroughput := int64(500)
 	timeInSecondsWaitTableRefresh := 5
 
 	inputDescribeTable := dynamodb.DescribeTableInput{TableName: &moviesTableName}
