@@ -34,16 +34,15 @@ resource "aws_iam_policy" "extract_movies_from_s3_policy" {
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
-      "Resource": "arn:aws:s3:::*"
+      "Resource": "arn:aws:s3::*:*"
     },
     {
       "Effect": "Allow",
-      "Action": ["lambda:InvokeFunction"],
-      "Resource": ["*"]
-    },
-    {
-      "Effect": "Allow",
-      "Action": ["dynamodb:*"],
+      "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:PutItem"
+      ],
       "Resource": ["arn:aws:dynamodb:us-east-1:*:table/movies"]
     }
   ]
@@ -56,6 +55,7 @@ resource "aws_iam_role_policy_attachment" "extract_movies_from_s3_attach" {
     policy_arn = "${aws_iam_policy.extract_movies_from_s3_policy.arn}"
 }
 
+/*
 resource "aws_iam_role" "import_movies_in_dynamodb_role" {
   name = "import_movies_in_dynamodb_role"
 
@@ -153,3 +153,4 @@ resource "aws_iam_role_policy_attachment" "verify_movies_in_dynamodb_attach" {
     role       = "${aws_iam_role.verify_movies_in_dynamodb_role.name}"
     policy_arn = "${aws_iam_policy.verify_movies_in_dynamodb_policy.arn}"
 }
+*/
