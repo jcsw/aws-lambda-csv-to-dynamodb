@@ -2,8 +2,8 @@ resource "aws_dynamodb_table" "movies" {
   name = "movies"
   read_capacity  = 5
   write_capacity = 5
-  hash_key       = "batchID"
-  range_key      = "imdb"
+  hash_key       = "imdb"
+  range_key      = "year"
 
   attribute {
     name = "imdb"
@@ -11,7 +11,7 @@ resource "aws_dynamodb_table" "movies" {
   }
 
   attribute {
-    name = "batchID"
+    name = "year"
     type = "N"
   }
 

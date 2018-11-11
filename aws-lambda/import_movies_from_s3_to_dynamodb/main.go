@@ -29,7 +29,7 @@ var writeThroughputBeforeImport = int64(600)
 var writeThroughputAfterImport = int64(5)
 var timeToWaitTableRefreshThroughput = time.Duration(5) * time.Second
 
-const numberOfWorkers = 3
+const numberOfWorkers = 4
 
 var sess *session.Session
 
@@ -188,12 +188,6 @@ func makeMovieItemWithCSVRecord(batchID string, batchDate string, record []strin
 	return dynamodb.PutItemInput{
 		TableName: aws.String(moviesTableName),
 		Item: map[string]*dynamodb.AttributeValue{
-			"batchID": {
-				N: aws.String(batchID),
-			},
-			"batchDate": {
-				S: aws.String(batchDate),
-			},
 			"imdb": {
 				S: aws.String(record[0]),
 			},
@@ -205,6 +199,12 @@ func makeMovieItemWithCSVRecord(batchID string, batchDate string, record []strin
 			},
 			"code": {
 				S: aws.String(record[3]),
+			},
+			"batchID": {
+				N: aws.String(batchID),
+			},
+			"batchDate": {
+				S: aws.String(batchDate),
 			},
 		},
 	}
